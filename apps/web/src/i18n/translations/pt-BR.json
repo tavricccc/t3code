@@ -12975,5 +12975,13 @@
   "201490988858b511": "retirada por {by}",
   "99451a5d2d40440f": "Retirada por {by}.",
   "3ee30a50b70fffab": "Retirada por {by}: {reason}",
-  "92e129bf413a1220": "retirada"
+  "92e129bf413a1220": "retirada",
+  "657fd3bdfef49676": "Continuar em execução na bandeja",
+  "30effa4e1dad58c1": "bandeja do sistema fechar janela segundo plano minimizar agentes continuar em execução remoto",
+  "53338e135827ee24": "Iniciar ao entrar",
+  "ea0f9695cbc3a2c5": "iniciar login inicialização entrar automaticamente abrir Windows",
+  "730b1d5e0268177f": "Fechar a janela mantém o T3 Code e seus agentes em execução, para que outros dispositivos ainda possam acessá-los.",
+  "31dfaa7a6cf41fec": "Fechar a janela encerra o T3 Code.",
+  "246cb74e22a798dd": "Inicia na bandeja quando você entra no Windows.",
+  "78de5e8c2b45dd63": "Abre o T3 Code quando você entra no Windows."
 }

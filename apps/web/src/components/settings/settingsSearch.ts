@@ -1383,6 +1383,22 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
+    id: "close-to-tray",
+    title: msg("Keep running in the tray"),
+    to: "/settings/connections",
+    searchTerms: [msg("system tray close window background minimize keep agents running remote")],
+    desktopOnly: true,
+    windowsOnly: true,
+  },
+  {
+    id: "launch-at-login",
+    title: msg("Start at sign-in"),
+    to: "/settings/connections",
+    searchTerms: [msg("launch login startup boot sign in automatically open windows")],
+    desktopOnly: true,
+    windowsOnly: true,
+  },
+  {
     id: "network-access",
     title: msg("Network access"),
     to: "/settings/access",
