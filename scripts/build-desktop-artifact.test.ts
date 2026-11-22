@@ -554,6 +554,44 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
+  it.effect("defaults the GitHub update feed to the fork repository when env is unset", () =>
+    Effect.gen(function* () {
+      const release = yield* createBuildConfig(
+        "win",
+        "nsis",
+        "0.1.1101",
+        false,
+        false,
+        undefined,
+        undefined,
+      );
+      const mock = yield* createBuildConfig(
+        "win",
+        "nsis",
+        "0.1.1101",
+        false,
+        true,
+        4123,
+        undefined,
+      );
+
+      assert.deepStrictEqual(release.publish, [
+        {
+          provider: "github",
+          owner: "tavricccc",
+          repo: "t3code",
+          releaseType: "release",
+        },
+      ]);
+      assert.deepStrictEqual(mock.publish, [
+        {
+          provider: "generic",
+          url: "http://localhost:4123",
+        },
+      ]);
+    }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })))),
+  );
+
   it.effect("names the Electron window class in the Linux desktop entry", () =>
     Effect.gen(function* () {
       const linux = yield* createBuildConfig(

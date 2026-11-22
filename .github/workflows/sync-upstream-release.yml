@@ -1,0 +1,185 @@
+name: Sync Upstream Release & Build Fork
+
+on:
+  schedule:
+    # Check upstream pingdotgg/t3code for new stable releases every 6 hours (off minute 0).
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Specific upstream stable tag to sync (e.g. v0.1.12). Leave blank for latest stable."
+        required: false
+        default: ""
+        type: string
+      fork_branch:
+        description: "Fork branch holding custom patches"
+        required: false
+        default: "windows-background-server"
+        type: string
+      force_release:
+        description: "Build and publish a new fork release even if already on the latest upstream tag"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: sync-upstream-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+jobs:
+  sync:
+    name: Sync upstream stable release & apply fork patches
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      should_release: ${{ steps.sync.outputs.should_release }}
+      ref: ${{ steps.sync.outputs.ref }}
+      upstream_tag: ${{ steps.sync.outputs.upstream_tag }}
+      upstream_version: ${{ steps.sync.outputs.upstream_version }}
+    steps:
+      - name: Checkout fork repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.fork_branch || 'windows-background-server' }}
+          fetch-depth: 0
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Sync upstream stable release and rebase fork patches
+        id: sync
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REPO: pingdotgg/t3code
+          REQUESTED_TAG: ${{ inputs.upstream_tag }}
+          FORK_BRANCH: ${{ inputs.fork_branch || 'windows-background-server' }}
+          FORCE_RELEASE: ${{ inputs.force_release == true && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$REQUESTED_TAG" ]]; then
+            upstream_tag="$REQUESTED_TAG"
+          else
+            upstream_tag="$(gh api "repos/${UPSTREAM_REPO}/releases/latest" --jq '.tag_name')"
+          fi
+
+          if [[ ! "$upstream_tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Upstream tag '$upstream_tag' is not a stable vX.Y.Z release; skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          upstream_version="${BASH_REMATCH[1]}"
+          echo "Target upstream stable release: $upstream_tag ($upstream_version)"
+
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null || \
+            git remote set-url upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch --no-tags upstream main
+          git fetch upstream "refs/tags/${upstream_tag}:refs/tags/${upstream_tag}"
+          git fetch origin "$FORK_BRANCH"
+
+          upstream_commit="$(git rev-parse "${upstream_tag}^{commit}")"
+          fork_tip="$(git rev-parse "origin/${FORK_BRANCH}")"
+
+          # Check whether this fork has already published a release for this upstream version.
+          existing_releases="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name' 2>/dev/null || true)"
+          already_released="$(node -e '
+            const [ver, raw] = process.argv.slice(1);
+            const [maj, min, pat] = ver.split(".").map(Number);
+            const found = raw.split(/\r?\n/).some((tag) => {
+              const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag.trim());
+              return m && Number(m[1]) === maj && Number(m[2]) === min && Math.floor(Number(m[3]) / 100) === pat && (Number(m[3]) % 100) > 0;
+            });
+            process.stdout.write(found ? "true" : "false");
+          ' "$upstream_version" "$existing_releases")"
+
+          already_contains_upstream="false"
+          if git merge-base --is-ancestor "$upstream_commit" "$fork_tip"; then
+            already_contains_upstream="true"
+          fi
+
+          if [[ "$already_contains_upstream" == "true" && "$already_released" == "true" && "$FORCE_RELEASE" != "true" ]]; then
+            echo "Fork branch '${FORK_BRANCH}' already includes ${upstream_tag} and a fork release exists. Nothing to do."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$already_contains_upstream" == "true" ]]; then
+            echo "Fork branch '${FORK_BRANCH}' already includes ${upstream_tag}; proceeding to build fork release."
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "ref=$fork_tip" >> "$GITHUB_OUTPUT"
+            echo "upstream_tag=$upstream_tag" >> "$GITHUB_OUTPUT"
+            echo "upstream_version=$upstream_version" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Isolate fork-only commits by finding where the fork diverged from upstream/main.
+          old_base="$(git merge-base "$fork_tip" upstream/main)"
+          patch_count="$(git rev-list --count "${old_base}..${fork_tip}")"
+          echo "Rebasing ${patch_count} fork commit(s) from ${old_base:0:10} onto ${upstream_tag} (${upstream_commit:0:10})..."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$FORK_BRANCH" "$fork_tip"
+
+          if ! git rebase --onto "$upstream_commit" "$old_base" "$FORK_BRANCH"; then
+            conflicts="$(git diff --name-only --diff-filter=U || true)"
+            git rebase --abort || true
+            issue_title="Upstream sync conflict for ${upstream_tag}"
+            issue_body="$(printf '%s\n' \
+              "Automatic rebase of \`${FORK_BRANCH}\` onto [\`${UPSTREAM_REPO}@${upstream_tag}\`](https://github.com/${UPSTREAM_REPO}/releases/tag/${upstream_tag}) encountered merge conflicts." \
+              "" \
+              "### Conflicting files" \
+              '```' \
+              "${conflicts:-(check workflow logs)}" \
+              '```' \
+              "" \
+              "### Local resolution steps" \
+              '```bash' \
+              "git fetch upstream --tags" \
+              "git checkout ${FORK_BRANCH}" \
+              "git rebase --onto ${upstream_tag} ${old_base} ${FORK_BRANCH}" \
+              "# resolve conflicts, then:" \
+              "git push --force-with-lease origin ${FORK_BRANCH}" \
+              '```' \
+              "" \
+              "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+            existing_issue="$(gh issue list --state open --search "\"${issue_title}\" in:title" --json number --jq '.[0].number // empty' || true)"
+            if [[ -n "$existing_issue" ]]; then
+              gh issue comment "$existing_issue" --body "$issue_body"
+            else
+              gh issue create --title "$issue_title" --body "$issue_body"
+            fi
+            echo "::error::Rebase onto ${upstream_tag} failed with conflicts."
+            exit 1
+          fi
+
+          new_tip="$(git rev-parse HEAD)"
+          git push --force-with-lease origin "$FORK_BRANCH"
+
+          # Also mirror the upstream release tag to origin so release notes can diff against it.
+          git push origin "refs/tags/${upstream_tag}" || true
+
+          echo "Rebased '${FORK_BRANCH}' cleanly to ${new_tip}."
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+          echo "ref=$new_tip" >> "$GITHUB_OUTPUT"
+          echo "upstream_tag=$upstream_tag" >> "$GITHUB_OUTPUT"
+          echo "upstream_version=$upstream_version" >> "$GITHUB_OUTPUT"
+
+  build_and_release:
+    name: Build & publish Windows x64 fork release
+    needs: [sync]
+    if: needs.sync.outputs.should_release == 'true'
+    uses: ./.github/workflows/build-win-x64-installer.yml
+    secrets: inherit
+    with:
+      ref: ${{ needs.sync.outputs.ref }}
+      publish_release: true
+      upstream_tag: ${{ needs.sync.outputs.upstream_tag }}
+      upstream_version: ${{ needs.sync.outputs.upstream_version }}
