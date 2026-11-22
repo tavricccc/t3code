@@ -12466,5 +12466,13 @@
   "27d76249d09eb69f": "Review guide ready",
   "faa3bb26abb39c93": "Review guide failed",
   "b7df38b7d8792d78": "Open guide",
-  "9e91e9a77b664e4e": "Could not start a review guide"
+  "9e91e9a77b664e4e": "Could not start a review guide",
+  "657fd3bdfef49676": "Keep running in the tray",
+  "30effa4e1dad58c1": "system tray close window background minimize keep agents running remote",
+  "53338e135827ee24": "Start at sign-in",
+  "ea0f9695cbc3a2c5": "launch login startup boot sign in automatically open windows",
+  "730b1d5e0268177f": "Closing the window keeps T3 Code and its agents running, so other devices can still reach them.",
+  "31dfaa7a6cf41fec": "Closing the window quits T3 Code.",
+  "246cb74e22a798dd": "Starts in the tray when you sign in to Windows.",
+  "78de5e8c2b45dd63": "Opens T3 Code when you sign in to Windows."
 }

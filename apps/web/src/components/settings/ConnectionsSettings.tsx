@@ -45,6 +45,7 @@ import { useAccessEnvironment } from "./useAccessEnvironment";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
 import { ManagedByOrganization } from "../ManagedPolicy";
 import { LocalEnvironmentSetting } from "./LocalEnvironmentSetting";
+import { TraySettings } from "./TraySettings";
 import { useSearchableSetting } from "./settingsSearch";
 import { ConnectDeviceApprovalSettings } from "./ConnectDeviceApprovalSettings";
 import { EnvironmentIconMenu } from "./EnvironmentIconPicker";
@@ -1829,6 +1830,7 @@ function ConnectionsSettingsContent({
       {desktopBridge ? (
         <SettingsSection id="this-app" title={gt("This app")}>
           <LocalEnvironmentSetting />
+          <TraySettings />
         </SettingsSection>
       ) : null}
       <SettingsSection

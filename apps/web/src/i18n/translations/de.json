@@ -12457,5 +12457,13 @@
   "27d76249d09eb69f": "Review-Leitfaden bereit",
   "faa3bb26abb39c93": "Review-Leitfaden fehlgeschlagen",
   "b7df38b7d8792d78": "Leitfaden öffnen",
-  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden"
+  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden",
+  "657fd3bdfef49676": "Im Infobereich weiterlaufen",
+  "30effa4e1dad58c1": "Infobereich Taskleiste Fenster schließen Hintergrund minimieren Agenten weiterlaufen remote",
+  "53338e135827ee24": "Bei der Anmeldung starten",
+  "ea0f9695cbc3a2c5": "starten Anmeldung Autostart Systemstart anmelden automatisch öffnen Windows",
+  "730b1d5e0268177f": "Beim Schließen des Fensters laufen T3 Code und seine Agenten weiter, sodass andere Geräte sie weiterhin erreichen.",
+  "31dfaa7a6cf41fec": "Beim Schließen des Fensters wird T3 Code beendet.",
+  "246cb74e22a798dd": "Startet bei der Anmeldung bei Windows im Infobereich.",
+  "78de5e8c2b45dd63": "Öffnet T3 Code bei der Anmeldung bei Windows."
 }

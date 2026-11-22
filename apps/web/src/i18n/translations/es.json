@@ -12452,5 +12452,13 @@
   "27d76249d09eb69f": "Guía de revisión lista",
   "faa3bb26abb39c93": "Falló la guía de revisión",
   "b7df38b7d8792d78": "Abrir guía",
-  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión"
+  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión",
+  "657fd3bdfef49676": "Seguir en ejecución en la bandeja",
+  "30effa4e1dad58c1": "bandeja del sistema cerrar ventana segundo plano minimizar agentes seguir en ejecución remoto",
+  "53338e135827ee24": "Iniciar al iniciar sesión",
+  "ea0f9695cbc3a2c5": "iniciar inicio de sesión arranque inicio automático abrir Windows",
+  "730b1d5e0268177f": "Al cerrar la ventana, T3 Code y sus agentes siguen en ejecución, así que otros dispositivos aún pueden acceder a ellos.",
+  "31dfaa7a6cf41fec": "Al cerrar la ventana, se cierra T3 Code.",
+  "246cb74e22a798dd": "Se inicia en la bandeja al iniciar sesión en Windows.",
+  "78de5e8c2b45dd63": "Abre T3 Code al iniciar sesión en Windows."
 }

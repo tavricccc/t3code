@@ -12464,5 +12464,13 @@
   "27d76249d09eb69f": "Granskningsguiden är klar",
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
-  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide"
+  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
+  "657fd3bdfef49676": "Fortsätt köra i systemfältet",
+  "30effa4e1dad58c1": "systemfält stäng fönster bakgrund minimera agenter fortsätt köra fjärr",
+  "53338e135827ee24": "Starta vid inloggning",
+  "ea0f9695cbc3a2c5": "starta inloggning autostart uppstart logga in automatiskt öppna Windows",
+  "730b1d5e0268177f": "När du stänger fönstret fortsätter T3 Code och dess agenter att köra, så att andra enheter fortfarande når dem.",
+  "31dfaa7a6cf41fec": "När du stänger fönstret avslutas T3 Code.",
+  "246cb74e22a798dd": "Startar i systemfältet när du loggar in i Windows.",
+  "78de5e8c2b45dd63": "Öppnar T3 Code när du loggar in i Windows."
 }
