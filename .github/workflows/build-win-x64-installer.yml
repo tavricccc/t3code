@@ -1,23 +1,68 @@
 name: Build Windows x64 Installer
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref or commit SHA to build"
+        required: false
+        default: ""
+        type: string
+      publish_release:
+        description: "Publish a GitHub Release with latest.yml for desktop auto-updates"
+        required: false
+        default: true
+        type: boolean
+      version:
+        description: "Explicit release version override (X.Y.Z). Defaults to monotonic fork version."
+        required: false
+        default: ""
+        type: string
+      upstream_tag:
+        description: "Upstream release tag this build is based on (for release notes)"
+        required: false
+        default: ""
+        type: string
+      upstream_version:
+        description: "Upstream stable version (X.Y.Z) used to derive fork version"
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish a GitHub Release with latest.yml for desktop auto-updates"
+        required: false
+        default: true
+        type: boolean
+      version:
+        description: "Explicit release version override (X.Y.Z). Leave blank for automatic fork version."
+        required: false
+        default: ""
+        type: string
+      upstream_tag:
+        description: "Upstream release tag this build is based on (optional, for release notes)"
+        required: false
+        default: ""
+        type: string
   push:
     branches:
       - windows-background-server
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     name: Build Windows x64 NSIS Installer
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
           sparse-checkout: |
             /*
             !/.repos/
@@ -27,6 +72,43 @@ jobs:
         uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      - name: Resolve fork release version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPLICIT_VERSION: ${{ inputs.version }}
+          UPSTREAM_VERSION: ${{ inputs.upstream_version }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$EXPLICIT_VERSION" ]]; then
+            clean="${EXPLICIT_VERSION#v}"
+            echo "version=$clean" >> "$GITHUB_OUTPUT"
+            echo "tag=v$clean" >> "$GITHUB_OUTPUT"
+            echo "release_name=T3 Code v$clean" >> "$GITHUB_OUTPUT"
+            echo "upstream_version=${UPSTREAM_VERSION:-$clean}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          existing_tags="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name' 2>/dev/null || true)"
+          git_tags="$(git tag -l 'v*.*.*' || true)"
+          all_tags="$(printf '%s\n%s\n' "$existing_tags" "$git_tags" | sort -u)"
+
+          upstream_ver="$UPSTREAM_VERSION"
+          if [[ -z "$upstream_ver" && -n "$UPSTREAM_TAG" ]]; then
+            upstream_ver="${UPSTREAM_TAG#v}"
+          fi
+
+          args=(--existing-tags "$all_tags" --github-output)
+          if [[ -n "$upstream_ver" ]]; then
+            args+=(--upstream-version "$upstream_ver")
+          fi
+          node scripts/resolve-fork-version.ts "${args[@]}"
+
+      - name: Align package versions to fork release version
+        run: node scripts/update-release-package-versions.ts "${{ steps.version.outputs.version }}"
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
@@ -39,7 +121,15 @@ jobs:
         with:
           tool: cargo-xwin@0.23.1
 
+      - name: Cache resource monitor
+        id: resource_monitor_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/resource-monitor/target/x86_64-pc-windows-msvc/release/t3-resource-monitor.exe
+          key: fork-resource-monitor-win-x64-${{ hashFiles('.cargo/config.toml', 'native/resource-monitor/Cargo.lock', 'native/resource-monitor/Cargo.toml', 'native/resource-monitor/src/**') }}
+
       - name: Build resource monitor
+        if: steps.resource_monitor_cache.outputs.cache-hit != 'true'
         shell: bash
         run: cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
 
@@ -49,15 +139,73 @@ jobs:
       - name: Build Windows x64 NSIS installer
         env:
           T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: "true"
-        run: vp run dist:desktop:artifact --platform win --target nsis --arch x64 --skip-build --verbose
+          T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
+        run: |
+          vp run dist:desktop:artifact \
+            --platform win \
+            --target nsis \
+            --arch x64 \
+            --build-version "${{ steps.version.outputs.version }}" \
+            --skip-build \
+            --verbose
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: win-x64-installer
+          name: win-x64-installer-${{ steps.version.outputs.version }}
           path: |
             release/*.exe
             release/*.blockmap
             release/*.yml
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub Release
+        if: (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch') && inputs.publish_release == true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_NAME: ${{ steps.version.outputs.release_name }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          UPSTREAM_VERSION: ${{ steps.version.outputs.upstream_version }}
+          TARGET_COMMIT: ${{ inputs.ref || github.sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(release/*.exe release/*.blockmap release/latest.yml)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No release assets found in release/." >&2
+            exit 1
+          fi
+          if [[ ! -f release/latest.yml ]]; then
+            echo "Missing release/latest.yml required by electron-updater." >&2
+            exit 1
+          fi
+
+          upstream_ref="${UPSTREAM_TAG:-v${UPSTREAM_VERSION}}"
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "## Fork Release \`${VERSION}\`"
+            echo ""
+            echo "- Upstream base: [\`pingdotgg/t3code@${upstream_ref}\`](https://github.com/pingdotgg/t3code/releases/tag/${upstream_ref})"
+            echo "- Auto-update feed: \`${GITHUB_REPOSITORY}\` (\`latest.yml\`)"
+            echo ""
+            if git rev-parse --verify "refs/tags/${upstream_ref}" >/dev/null 2>&1; then
+              echo "### Fork patches"
+              git log --no-merges --pretty=format:'- %s (`%h`)' "refs/tags/${upstream_ref}..HEAD"
+              echo ""
+            fi
+          } > "$notes_file"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" --title "$RELEASE_NAME" --notes-file "$notes_file" --latest
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --target "$TARGET_COMMIT" \
+              --title "$RELEASE_NAME" \
+              --notes-file "$notes_file" \
+              --latest
+          fi
