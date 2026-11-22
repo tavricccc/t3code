@@ -16,6 +16,7 @@ import {
   getLocalEnvironmentEnabled,
   setLocalEnvironmentEnabled,
 } from "./methods/localEnvironment.ts";
+import { getTrayPreferences, setTrayPreferences } from "./methods/tray.ts";
 import {
   getAdvertisedEndpoints,
   getServerExposureState,
@@ -115,6 +116,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handleSync(getLocalEnvironmentBootstraps);
   yield* ipc.handleSync(getLocalEnvironmentEnabled);
   yield* ipc.handle(setLocalEnvironmentEnabled);
+  yield* ipc.handleSync(getTrayPreferences);
+  yield* ipc.handle(setTrayPreferences);
   yield* ipc.handle(getHostEnvironmentId);
   yield* ipc.handle(getLocalEnvironmentBearerToken);
 

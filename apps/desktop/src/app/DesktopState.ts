@@ -18,6 +18,10 @@ export class DesktopState extends Context.Service<
   {
     readonly backendReady: Ref.Ref<boolean>;
     readonly quitting: Ref.Ref<boolean>;
+    // While the tray icon is up, closing the last window leaves the app and its backend running.
+    readonly runsInTray: Ref.Ref<boolean>;
+    // A launch at sign-in opens no window until the tray or a second launch asks for one.
+    readonly startedInBackground: Ref.Ref<boolean>;
     // Set by DesktopUpdates.configure, which runs before the first backend start.
     readonly canInstallUpdates: Ref.Ref<boolean>;
     readonly primaryBackendStartup: SubscriptionRef.SubscriptionRef<PrimaryBackendStartup>;
@@ -28,6 +32,8 @@ export class DesktopState extends Context.Service<
 const make = Effect.all({
   backendReady: Ref.make(false),
   quitting: Ref.make(false),
+  runsInTray: Ref.make(false),
+  startedInBackground: Ref.make(false),
   canInstallUpdates: Ref.make(false),
   primaryBackendStartup: SubscriptionRef.make<PrimaryBackendStartup>({ _tag: "Starting" }),
   databaseMigrationProgress: Ref.make<DatabaseMigrationProgress | null>(null),

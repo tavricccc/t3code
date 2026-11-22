@@ -29,6 +29,10 @@ import { isValidDistroName } from "../wsl/wslPathParsing.ts";
 
 export interface DesktopSettings {
   readonly localEnvironmentEnabled: boolean;
+  // Windows only: closing the last window leaves the app running in the tray.
+  readonly closeToTray: boolean;
+  // Windows only: start in the tray when the user signs in.
+  readonly launchAtLogin: boolean;
   readonly linuxPasswordStore: LinuxPasswordStorePreference;
   readonly mainWindowBounds: DesktopWindowBounds | null;
   readonly mainWindowMaximized: boolean;
@@ -42,6 +46,8 @@ export interface DesktopSettings {
   // Requires restart because the pool chooses its primary spec at layer initialization.
   readonly wslOnly: boolean;
 }
+
+export type DesktopTrayPreferences = Pick<DesktopSettings, "closeToTray" | "launchAtLogin">;
 
 export interface DesktopSettingsChange {
   readonly settings: DesktopSettings;
@@ -70,6 +76,8 @@ export const DEFAULT_MAIN_WINDOW_SIZE = {
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   localEnvironmentEnabled: true,
+  closeToTray: true,
+  launchAtLogin: true,
   linuxPasswordStore: DEFAULT_LINUX_PASSWORD_STORE,
   mainWindowBounds: null,
   mainWindowMaximized: false,
@@ -97,6 +105,8 @@ const optionalReadableKey = <S extends Schema.Top>(schema: S) =>
 
 const DesktopSettingsDocument = Schema.Struct({
   localEnvironmentEnabled: optionalReadableKey(Schema.Boolean),
+  closeToTray: optionalReadableKey(Schema.Boolean),
+  launchAtLogin: optionalReadableKey(Schema.Boolean),
   linuxPasswordStore: optionalReadableKey(Schema.Unknown),
   mainWindowBounds: optionalReadableKey(Schema.NullOr(DesktopWindowBoundsDocument)),
   mainWindowMaximized: optionalReadableKey(Schema.Boolean),
@@ -155,6 +165,9 @@ export class DesktopAppSettings extends Context.Service<
     readonly get: Effect.Effect<DesktopSettings>;
     readonly setLocalEnvironmentEnabled: (
       enabled: boolean,
+    ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
+    readonly setTrayPreferences: (
+      preferences: Partial<DesktopTrayPreferences>,
     ) => Effect.Effect<DesktopSettingsChange, DesktopSettingsWriteError>;
     readonly setMainWindowBounds: (
       bounds: DesktopWindowBounds,
@@ -226,6 +239,8 @@ function normalizeDesktopSettingsDocument(
 
   return {
     localEnvironmentEnabled: parsed.localEnvironmentEnabled !== false,
+    closeToTray: parsed.closeToTray ?? defaultSettings.closeToTray,
+    launchAtLogin: parsed.launchAtLogin ?? defaultSettings.launchAtLogin,
     linuxPasswordStore: normalizeLinuxPasswordStorePreference(parsed.linuxPasswordStore),
     mainWindowBounds,
     mainWindowMaximized: mainWindowBounds !== null && parsed.mainWindowMaximized === true,
@@ -251,6 +266,12 @@ function toDesktopSettingsDocument(
 
   if (settings.localEnvironmentEnabled !== defaults.localEnvironmentEnabled) {
     document.localEnvironmentEnabled = settings.localEnvironmentEnabled;
+  }
+  if (settings.closeToTray !== defaults.closeToTray) {
+    document.closeToTray = settings.closeToTray;
+  }
+  if (settings.launchAtLogin !== defaults.launchAtLogin) {
+    document.launchAtLogin = settings.launchAtLogin;
   }
 
   if (settings.linuxPasswordStore !== defaults.linuxPasswordStore) {
@@ -380,6 +401,17 @@ function setLocalEnvironmentEnabled(settings: DesktopSettings, enabled: boolean)
   return settings.localEnvironmentEnabled === enabled
     ? settings
     : { ...settings, localEnvironmentEnabled: enabled };
+}
+
+function setTrayPreferences(
+  settings: DesktopSettings,
+  preferences: Partial<DesktopTrayPreferences>,
+): DesktopSettings {
+  const closeToTray = preferences.closeToTray ?? settings.closeToTray;
+  const launchAtLogin = preferences.launchAtLogin ?? settings.launchAtLogin;
+  return closeToTray === settings.closeToTray && launchAtLogin === settings.launchAtLogin
+    ? settings
+    : { ...settings, closeToTray, launchAtLogin };
 }
 
 function applyWslWindowsFallback(settings: DesktopSettings): DesktopSettings {
@@ -599,6 +631,11 @@ export const make = Effect.gen(function* () {
         return yield* persist((settings) => setLocalEnvironmentEnabled(settings, enabled));
       },
     ),
+    setTrayPreferences: Effect.fn("desktop.settings.setTrayPreferences")(function* (preferences) {
+      yield* Effect.annotateCurrentSpan(preferences);
+
+      return yield* persist((settings) => setTrayPreferences(settings, preferences));
+    }),
     applyWslWindowsFallback: persist(applyWslWindowsFallback).pipe(
       Effect.withSpan("desktop.settings.applyWslWindowsFallback"),
     ),
@@ -660,6 +697,11 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
         setLocalEnvironmentEnabled: Effect.fn("DesktopAppSettings.setLocalEnvironmentEnabled")(
           function (enabled) {
             return update((settings) => setLocalEnvironmentEnabled(settings, enabled));
+          },
+        ),
+        setTrayPreferences: Effect.fn("DesktopAppSettings.setTrayPreferences")(
+          function (preferences) {
+            return update((settings) => setTrayPreferences(settings, preferences));
           },
         ),
         applyWslWindowsFallback: update(applyWslWindowsFallback),

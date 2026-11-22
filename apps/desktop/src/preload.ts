@@ -162,6 +162,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     ipcRenderer.sendSync(IpcChannels.GET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL) !== false,
   setLocalEnvironmentEnabled: (enabled) =>
     ipcRenderer.invoke(IpcChannels.SET_LOCAL_ENVIRONMENT_ENABLED_CHANNEL, enabled),
+  getTrayPreferences: () => ipcRenderer.sendSync(IpcChannels.GET_TRAY_PREFERENCES_CHANNEL),
+  setTrayPreferences: (preferences) =>
+    ipcRenderer.invoke(IpcChannels.SET_TRAY_PREFERENCES_CHANNEL, preferences),
   getHostEnvironmentId: () => ipcRenderer.invoke(IpcChannels.GET_HOST_ENVIRONMENT_ID_CHANNEL),
   getClientSettings: () => ipcRenderer.invoke(IpcChannels.GET_CLIENT_SETTINGS_CHANNEL),
   setClientSettings: (settings) =>
