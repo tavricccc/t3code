@@ -1,4 +1,6 @@
+import type { ContextWindowSnapshot } from "@t3tools/client-runtime/state/context-window";
 import type { ChatComposerProps } from "./ChatComposer";
+import { ComposerContextWindowRing } from "./ComposerContextWindowRing";
 import type { PromptUltrathink } from "./TraitsPicker";
 import type { ProviderInstanceEntry } from "../../providerInstances";
 import { type AppModelOption } from "../../modelSelection";
@@ -87,6 +89,7 @@ export function ComposerControlsBar(props: {
   onModelPickerOpenChange: (open: boolean) => void;
   modelPickerIconClassName: string | undefined;
   getModelDisabledReason: ChatComposerProps["getModelDisabledReason"];
+  contextWindow?: ContextWindowSnapshot | null;
 }) {
   const {
     environmentId,
@@ -131,6 +134,7 @@ export function ComposerControlsBar(props: {
     onModelPickerOpenChange,
     modelPickerIconClassName,
     getModelDisabledReason,
+    contextWindow = null,
   } = props;
   const accessMatchesDefault = compatibleRuntimeMode === defaultRuntimeMode;
   const {
@@ -265,6 +269,7 @@ export function ComposerControlsBar(props: {
     </ComposerControl>
   ) : (
     <>
+      <ComposerContextWindowRing usage={contextWindow} size={controlSize} />
       {composerModelPicker}
 
       <>

@@ -266,6 +266,7 @@ import { isVideoAttachment, type SessionPhase, type Thread } from "../../types";
 import { type ComposerPromptHistoryPosition } from "./composerPromptHistory";
 import { usePendingUserInputDraft } from "./usePendingThreadRequests";
 import type { PendingApproval, PendingUserInput, TimelineEntry } from "../../session-logic";
+import type { ContextWindowSnapshot } from "@t3tools/client-runtime/state/context-window";
 import {
   composerRunsDraftLocally,
   resolveComposerDispatchMode,
@@ -406,6 +407,7 @@ export interface ChatComposerProps {
   canSteer: boolean;
   bannerItems: readonly ComposerBannerStackItem[];
   resumeCompactionTokens: number | null;
+  contextWindow?: ContextWindowSnapshot | null;
   keepFullHistory: boolean;
   onToggleKeepFullHistory: () => void;
   onUsageLimitsCommand?: (() => void) | undefined;
@@ -2737,6 +2739,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       onModelPickerOpenChange={setIsComposerModelPickerOpen}
       modelPickerIconClassName={composerProviderState.modelPickerIconClassName}
       getModelDisabledReason={getModelDisabledReason}
+      contextWindow={props.contextWindow ?? null}
     />
   );
   // An open question owns the space above the composer. Only a machine problem,
