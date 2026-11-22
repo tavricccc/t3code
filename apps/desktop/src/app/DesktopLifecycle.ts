@@ -21,6 +21,7 @@ import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopState from "./DesktopState.ts";
+import { LAUNCH_IN_BACKGROUND_ARG } from "./DesktopTray.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 
 export class DesktopLifecycleRelaunchError extends Schema.TaggedError<DesktopLifecycleRelaunchError>()(
@@ -232,11 +233,17 @@ export const make = DesktopLifecycle.of({
         return;
       }
       // Startup already acted on the app link that launched it; passing it on replays it.
+      // A relaunch the user asked for must also open its window, unlike the sign-in launch.
       const appLinkPrefix = `${ElectronProtocol.getDesktopScheme(environment.isDevelopment)}:`;
       const args = yield* HostProcess.Arguments;
       yield* electronApp.relaunch({
         execPath: yield* HostProcess.ExecutablePath,
-        args: args.slice(1).filter((arg) => !arg.toLowerCase().startsWith(appLinkPrefix)),
+        args: args
+          .slice(1)
+          .filter(
+            (arg) =>
+              !arg.toLowerCase().startsWith(appLinkPrefix) && arg !== LAUNCH_IN_BACKGROUND_ARG,
+          ),
       });
       yield* electronApp.exit(0);
     }).pipe(

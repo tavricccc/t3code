@@ -17,6 +17,7 @@ import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import * as DesktopLifecycle from "./DesktopLifecycle.ts";
 import * as DesktopShutdown from "./DesktopShutdown.ts";
 import * as DesktopState from "./DesktopState.ts";
+import { LAUNCH_IN_BACKGROUND_ARG } from "./DesktopTray.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 
 function layerElectronApp(
@@ -229,7 +230,7 @@ describe("DesktopLifecycle", () => {
     }),
   );
 
-  it.effect("relaunches without the app link that launched it", () =>
+  it.effect("relaunches without the app link or sign-in flag that launched it", () =>
     Effect.gen(function* () {
       const relaunched = yield* Deferred.make<Electron.RelaunchOptions>();
       const layerEnvironment = Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
@@ -264,6 +265,7 @@ describe("DesktopLifecycle", () => {
         Effect.provideService(HostProcess.Arguments, [
           "/opt/T3 Code/t3code",
           "--no-sandbox",
+          LAUNCH_IN_BACKGROUND_ARG,
           "T3CODE://pair?token=spent",
           "t3code://new?prompt=hello",
         ]),
