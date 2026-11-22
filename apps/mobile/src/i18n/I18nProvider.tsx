@@ -21,6 +21,7 @@ export function useFormattingLocale(): string {
 const CATALOGS: Readonly<Record<string, () => unknown>> = {
   es: () => require("./translations/es.json"),
   zh: () => require("./translations/zh.json"),
+  "zh-TW": () => require("./translations/zh-TW.json"),
   "pt-BR": () => require("./translations/pt-BR.json"),
   fr: () => require("./translations/fr.json"),
   de: () => require("./translations/de.json"),
