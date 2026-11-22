@@ -666,6 +666,18 @@ When a T3 Connect connection fails, see
 [T3 Connect troubleshooting](./t3-connect-troubleshooting.md). It explains each
 error, where the problem is, and how to fix it.
 
+## Keep the desktop app running on Windows
+
+On Windows, closing the desktop app's window leaves T3 Code running in the system tray, so
+running agents finish and your other devices can still reach this computer. Click the tray icon
+to open the window again. The app also starts in the tray when you sign in to Windows. Choose
+**Quit** in the tray icon's menu to stop it; it asks first while agents are still running.
+
+Turn off either behavior in **Settings → Environments** under **Keep running in the tray** and
+**Start at sign-in**. Signing out of Windows stops T3 Code, so lock the screen instead when you
+want to keep working remotely. To keep a server running without the desktop app, use the
+[background service](./background-service.md) with its own T3 home.
+
 ## Using the Desktop App as a Remote Only
 
 If a computer should only drive work running elsewhere, turn off its local environment. In the
