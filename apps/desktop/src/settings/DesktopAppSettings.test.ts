@@ -13,6 +13,8 @@ import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopAppSettings from "./DesktopAppSettings.ts";
 
 const DesktopSettingsPatch = Schema.Struct({
+  closeToTray: Schema.optionalKey(Schema.Boolean),
+  launchAtLogin: Schema.optionalKey(Schema.Boolean),
   linuxPasswordStore: Schema.optionalKey(
     Schema.Literals(["auto", "gnome-libsecret", "kwallet", "kwallet5", "kwallet6"]),
   ),
@@ -225,6 +227,8 @@ describe("DesktopSettings", () => {
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
           localEnvironmentEnabled: true,
+          closeToTray: true,
+          launchAtLogin: true,
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
@@ -295,6 +299,8 @@ describe("DesktopSettings", () => {
 
         yield* settings.setMainWindowBounds({ x: -1200, y: 40, width: 400, height: 360 }, true);
         yield* settings.setServerExposureMode("network-accessible");
+        yield* settings.setTrayPreferences({ launchAtLogin: false });
+        assert.isFalse((yield* settings.setTrayPreferences({ launchAtLogin: false })).changed);
 
         const persisted = yield* decodeDesktopSettingsPatch(
           yield* fileSystem.readFileString(environment.desktopSettingsPath),
@@ -303,6 +309,7 @@ describe("DesktopSettings", () => {
           mainWindowBounds: { x: -1200, y: 40, width: 400, height: 360 },
           mainWindowMaximized: true,
           serverExposureMode: "network-accessible",
+          launchAtLogin: false,
         } satisfies typeof DesktopSettingsPatch.Type);
 
         const restored = yield* Effect.gen(function* () {
@@ -311,6 +318,8 @@ describe("DesktopSettings", () => {
         }).pipe(Effect.provide(DesktopAppSettings.layer));
         assert.deepEqual(restored.mainWindowBounds, persisted.mainWindowBounds);
         assert.isTrue(restored.mainWindowMaximized);
+        assert.isTrue(restored.closeToTray);
+        assert.isFalse(restored.launchAtLogin);
       }),
     ),
   );
@@ -378,6 +387,8 @@ describe("DesktopSettings", () => {
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
           localEnvironmentEnabled: true,
+          closeToTray: true,
+          launchAtLogin: true,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",
@@ -407,6 +418,8 @@ describe("DesktopSettings", () => {
         assert.deepEqual(yield* settings.load, {
           linuxPasswordStore: "auto",
           localEnvironmentEnabled: true,
+          closeToTray: true,
+          launchAtLogin: true,
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "local-only",

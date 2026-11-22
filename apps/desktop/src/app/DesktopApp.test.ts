@@ -49,6 +49,7 @@ import * as DesktopSnapShot from "../snapShot/DesktopSnapShot.ts";
 import * as DesktopRendererHistory from "../telemetry/DesktopRendererHistory.ts";
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import * as DesktopApplicationMenu from "../window/DesktopApplicationMenu.ts";
+import * as DesktopTray from "./DesktopTray.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as DesktopWslBackend from "../wsl/DesktopWslBackend.ts";
 
@@ -92,6 +93,7 @@ interface StubbedDesktop {
 const runStubbedDesktop = (stub: StubbedDesktop) =>
   Effect.gen(function* () {
     const quitting = yield* Ref.make(false);
+    const startedInBackground = yield* Ref.make(false);
     const runApp = DesktopApp.program
       .pipe(
         Effect.provide(NodeCrypto.layer),
@@ -149,6 +151,7 @@ const runStubbedDesktop = (stub: StubbedDesktop) =>
         Effect.provideService(DesktopApplicationMenu.DesktopApplicationMenu, {
           configure: stub.record("menu"),
         }),
+        Effect.provideService(DesktopTray.DesktopTray, { configure: Effect.void }),
         Effect.provideService(DesktopUpdates.DesktopUpdates, {
           configure: Effect.void,
         } as unknown as DesktopUpdates.DesktopUpdates["Service"]),
@@ -168,6 +171,7 @@ const runStubbedDesktop = (stub: StubbedDesktop) =>
         } as DesktopSnapShot.DesktopSnapShot["Service"]),
         Effect.provideService(DesktopState.DesktopState, {
           quitting,
+          startedInBackground,
         } as DesktopState.DesktopState["Service"]),
         Effect.provideService(DesktopWindow.DesktopWindow, {
           ensureMain: stub

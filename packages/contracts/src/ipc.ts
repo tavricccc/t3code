@@ -1104,6 +1104,13 @@ export const DesktopAppleSpeechTranscribeInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+export interface DesktopTrayPreferences {
+  /** Closing the last window leaves the app and its agents running in the tray. */
+  readonly closeToTray: boolean;
+  /** The app starts in the tray when the user signs in. */
+  readonly launchAtLogin: boolean;
+}
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   /** `null` until the desktop host has read the login shell's environment; ask again later. */
@@ -1134,6 +1141,9 @@ export interface DesktopBridge {
   getLocalEnvironmentBootstraps: () => readonly DesktopEnvironmentBootstrap[];
   getLocalEnvironmentEnabled: () => boolean;
   setLocalEnvironmentEnabled: (enabled: boolean) => Promise<void>;
+  /** Null where the desktop runs no tray (anything but Windows). */
+  getTrayPreferences?: () => DesktopTrayPreferences | null;
+  setTrayPreferences?: (preferences: Partial<DesktopTrayPreferences>) => Promise<void>;
   /** The environment ID recorded in this app's T3 home, such as its own machine's background service. */
   getHostEnvironmentId?: () => Promise<string | null>;
   getLocalEnvironmentBearerToken: () => Promise<string>;

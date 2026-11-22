@@ -40,3 +40,10 @@
     ${EndIf}
   !endif
 !macroend
+
+!macro customUnInstall
+  ; The app registers its sign-in launch under the app ID; an update keeps it.
+  ${ifNot} ${isUpdated}
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
+  ${endIf}
+!macroend

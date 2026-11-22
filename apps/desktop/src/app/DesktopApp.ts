@@ -37,6 +37,7 @@ import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopShellEnvironment from "../shell/DesktopShellEnvironment.ts";
 import * as DesktopStartupRecovery from "./DesktopStartupRecovery.ts";
 import * as DesktopState from "./DesktopState.ts";
+import * as DesktopTray from "./DesktopTray.ts";
 import * as DesktopRemoteUpdates from "../updates/DesktopRemoteUpdates.ts";
 import * as DesktopUpdates from "../updates/DesktopUpdates.ts";
 import * as DesktopSnapShot from "../snapShot/DesktopSnapShot.ts";
@@ -337,7 +338,7 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
   if (!settings.localEnvironmentEnabled) {
     // The backend config refreshes the launcher when the local environment runs; an update may move the app.
     yield* DesktopCliShim.install;
-    if (!(yield* Ref.get(state.quitting))) {
+    if (!(yield* Ref.get(state.quitting)) && !(yield* Ref.get(state.startedInBackground))) {
       yield* desktopWindow.createMainIfBackendReady;
     }
     // `t3 <dir>` still reaches the renderer, which opens it on this machine's connected service.
@@ -350,7 +351,8 @@ const bootstrap = Effect.fn("desktop.bootstrap")(function* (backendStarted: bool
   if (
     !environment.isDevelopment &&
     Option.isSome(config) &&
-    Option.isNone(config.value.preflightFailure)
+    Option.isNone(config.value.preflightFailure) &&
+    !(yield* Ref.get(state.startedInBackground))
   ) {
     yield* desktopWindow.ensureMain;
   }
@@ -372,6 +374,8 @@ const startup = Effect.gen(function* () {
   const updates = yield* DesktopUpdates.DesktopUpdates;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const previewPasskeys = yield* PreviewPasskeys.PreviewPasskeys;
+  const tray = yield* DesktopTray.DesktopTray;
+  const state = yield* DesktopState.DesktopState;
 
   yield* shellEnvironment.installIntoProcess;
   const hasCommandLinePasswordStore =
@@ -399,7 +403,15 @@ const startup = Effect.gen(function* () {
   const userDataPath = yield* appIdentity.resolveUserDataPath;
   yield* electronApp.setPath("userData", userDataPath);
   yield* logStartupInfo("runtime logging configured", { logDir: environment.logDir });
-  yield* desktopSettings.load;
+  const settings = yield* desktopSettings.load;
+  yield* Ref.set(
+    state.startedInBackground,
+    DesktopTray.startsInBackground({
+      platform: environment.platform,
+      args: yield* HostProcess.Arguments,
+      settings,
+    }),
+  );
 
   if (linuxElectronOptions !== null) {
     const xdgDesktop = yield* LinuxDesktopSessionConfig;
@@ -437,6 +449,7 @@ const startup = Effect.gen(function* () {
   );
   yield* previewPasskeys.configure;
   yield* applicationMenu.configure;
+  yield* tray.configure;
   // Portal identity is prepared pre-ready; MIME helpers must not gate the backend or window.
   yield* linuxUrlHandler.register.pipe(Effect.forkScoped);
   yield* bootstrap(backendStarted).pipe(

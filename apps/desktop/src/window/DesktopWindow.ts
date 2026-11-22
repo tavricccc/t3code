@@ -1055,6 +1055,7 @@ export const make = Effect.gen(function* () {
     const window = yield* createWindow();
     if (Option.isSome(window)) {
       mainClosedDuringStartup = false;
+      yield* Ref.set(desktopState.startedInBackground, false);
       yield* logWindowInfo("main window created");
     }
     return window;
@@ -1186,7 +1187,7 @@ export const make = Effect.gen(function* () {
         yield* revealMain(existingWindow.value);
         return;
       }
-      if (mainClosedDuringStartup) {
+      if (mainClosedDuringStartup || (yield* Ref.get(desktopState.startedInBackground))) {
         yield* ensureMain;
         return;
       }
@@ -1206,7 +1207,9 @@ export const make = Effect.gen(function* () {
       backendHasStarted = true;
       yield* Ref.set(backendReadyRef, true);
       yield* logWindowInfo("backend ready", { source: "http", url: httpBaseUrl.href });
-      if (!mainClosedDuringStartup) yield* createMainIfBackendReady;
+      if (!mainClosedDuringStartup && !(yield* Ref.get(desktopState.startedInBackground))) {
+        yield* createMainIfBackendReady;
+      }
     }),
     handleBackendNotReady: Ref.set(backendReadyRef, false).pipe(
       Effect.withSpan("desktop.window.handleBackendNotReady"),

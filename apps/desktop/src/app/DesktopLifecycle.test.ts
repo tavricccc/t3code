@@ -362,4 +362,43 @@ describe("DesktopLifecycle", () => {
       ).pipe(Effect.provide(layer));
     }),
   );
+
+  it.effect("keeps running after the last window closes only while the tray is up", () =>
+    Effect.gen(function* () {
+      const appListeners = new Map<string, (...args: readonly unknown[]) => void>();
+      let quitCount = 0;
+      const quit = Effect.sync(() => {
+        quitCount += 1;
+      });
+      const layerEnvironment = Layer.succeed(DesktopEnvironment.DesktopEnvironment, {
+        platform: "win32",
+        isDevelopment: false,
+      } as DesktopEnvironment.DesktopEnvironment["Service"]);
+      const layer = DesktopLifecycle.layer.pipe(
+        Layer.provideMerge(layerElectronApp(appListeners, quit)),
+        Layer.provideMerge(layerElectronTheme),
+        Layer.provideMerge(layerElectronWindow()),
+        Layer.provideMerge(layerDesktopWindow()),
+        Layer.provideMerge(layerEnvironment),
+        Layer.provideMerge(DesktopShutdown.layer),
+        Layer.provideMerge(DesktopState.layer),
+      );
+
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const lifecycle = yield* DesktopLifecycle.DesktopLifecycle;
+          const state = yield* DesktopState.DesktopState;
+          yield* lifecycle.register;
+
+          yield* Ref.set(state.runsInTray, true);
+          appListeners.get("window-all-closed")?.();
+          assert.equal(quitCount, 0);
+
+          yield* Ref.set(state.runsInTray, false);
+          appListeners.get("window-all-closed")?.();
+          assert.equal(quitCount, 1);
+        }),
+      ).pipe(Effect.provide(layer));
+    }),
+  );
 });
