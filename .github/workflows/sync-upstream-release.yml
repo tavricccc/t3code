@@ -2,8 +2,8 @@ name: Sync Upstream Release & Build Fork
 
 on:
   schedule:
-    # Check upstream pingdotgg/t3code for new stable releases every 6 hours (off minute 0).
-    - cron: "23 */6 * * *"
+    # Check upstream pingdotgg/t3code for new stable releases every 3 days, restarting on the 1st of each month.
+    - cron: "23 0 */3 * *"
   workflow_dispatch:
     inputs:
       upstream_tag:
