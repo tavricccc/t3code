@@ -28,7 +28,6 @@ concurrency:
 
 permissions:
   contents: write
-  issues: write
   actions: read
 
 jobs:
@@ -46,11 +45,9 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ inputs.fork_branch || 'windows-background-server' }}
+          # No sparse-checkout: it implies a blob:none clone, and the rebase then asks origin for
+          # upstream blobs the fork does not have.
           fetch-depth: 0
-          sparse-checkout: |
-            /*
-            !/.repos/
-          sparse-checkout-cone-mode: false
 
       - name: Sync upstream stable release and rebase fork patches
         id: sync
@@ -81,7 +78,7 @@ jobs:
           git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null || \
             git remote set-url upstream "https://github.com/${UPSTREAM_REPO}.git"
           git fetch --no-tags upstream main
-          git fetch upstream "refs/tags/${upstream_tag}:refs/tags/${upstream_tag}"
+          git fetch --no-tags upstream "refs/tags/${upstream_tag}:refs/tags/${upstream_tag}"
           git fetch origin "$FORK_BRANCH"
 
           upstream_commit="$(git rev-parse "${upstream_tag}^{commit}")"
@@ -131,9 +128,9 @@ jobs:
           if ! git rebase --onto "$upstream_commit" "$old_base" "$FORK_BRANCH"; then
             conflicts="$(git diff --name-only --diff-filter=U || true)"
             git rebase --abort || true
-            issue_title="Upstream sync conflict for ${upstream_tag}"
-            issue_body="$(printf '%s\n' \
-              "Automatic rebase of \`${FORK_BRANCH}\` onto [\`${UPSTREAM_REPO}@${upstream_tag}\`](https://github.com/${UPSTREAM_REPO}/releases/tag/${upstream_tag}) encountered merge conflicts." \
+            summary_title="Upstream sync failed for ${upstream_tag}"
+            summary_body="$(printf '%s\n' \
+              "Automatic rebase of \`${FORK_BRANCH}\` onto [\`${UPSTREAM_REPO}@${upstream_tag}\`](https://github.com/${UPSTREAM_REPO}/releases/tag/${upstream_tag}) failed." \
               "" \
               "### Conflicting files" \
               '```' \
@@ -150,13 +147,8 @@ jobs:
               '```' \
               "" \
               "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
-            existing_issue="$(gh issue list --state open --search "\"${issue_title}\" in:title" --json number --jq '.[0].number // empty' || true)"
-            if [[ -n "$existing_issue" ]]; then
-              gh issue comment "$existing_issue" --body "$issue_body"
-            else
-              gh issue create --title "$issue_title" --body "$issue_body"
-            fi
-            echo "::error::Rebase onto ${upstream_tag} failed with conflicts."
+            printf '## %s\n\n%s\n' "$summary_title" "$summary_body" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Rebase onto ${upstream_tag} failed. Conflicts: ${conflicts//$'\n'/, }"
             exit 1
           fi
 
